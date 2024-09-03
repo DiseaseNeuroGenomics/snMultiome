@@ -7,6 +7,8 @@
 #             Hotspot results and pseudotime. The script also includes 
 #             correlation analysis between pseudotime and eRegulon activity
 #             using SCENIC results.
+#
+# outputs: Potential plots for Fig. 5e-f, Fig. 6 a-c 
 # -----------------------------------------------------------------------------
 
 # Load necessary libraries
