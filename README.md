@@ -4,7 +4,7 @@
 - **Date:** August 2024
 - **Script Name:** `magma_ldsc.R`
 - **Description:** Analyzes enrichment (MAGMA / LDsc) and TOBIAS results.
-- **Outputs:** Plots for Fig. 2C, 2E, 3A, 6C, and S6.
+- **Outputs:** Plots for Fig. 2c, 2e, 3a, 6c, and S6.
 
 ## Project: snMultiome
 - **Date:** August 2024
