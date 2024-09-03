@@ -1,186 +1,175 @@
-library(Seurat)
-library(Signac)
-library(ggplot2)
-library(harmony)
-library(EnsDb.Hsapiens.v86)
-library(dplyr)
-library(tidyr)
+# -----------------------------------------------------------------------------
+# Project: Single-cell Multi-Modal Analysis
+# Date: August 2024
+# Script name: preprocess_merge.R
+# Description: This script pre-processes single-cell RNA-seq and ATAC-seq 
+#              data from multiple samples using Seurat and Signac, merges the 
+#          pre-processed data into a single Seurat object, and saves the output.
+# -----------------------------------------------------------------------------
 
+#---------------------------------------------------------------------
+# LIBRARIES
+#---------------------------------------------------------------------
 
+# Load necessary libraries for multi-modal single-cell analysis
+library(Seurat)              # Comprehensive toolkit for single-cell RNA-seq analysis
+library(Signac)              # Extends Seurat for single-cell chromatin accessibility analysis (e.g., ATAC-seq)
+library(ggplot2)             # Visualization library for creating plots
+library(harmony)             # Tool for batch correction and data integration across different conditions
+library(EnsDb.Hsapiens.v86)  # Ensembl-based annotation package for the human genome (version 86)
+library(dplyr)               # Grammar of data manipulation
+library(tidyr)               # Tools for tidying up data
 
+#---------------------------------------------------------------------
+# HELPER FUNCTIONS
+#---------------------------------------------------------------------
+### Function: create_seurat_object
+# Description: Creates a Seurat object from 10x Genomics data for both RNA and ATAC modalities.
+create_seurat_object <- function(sample_id, data_dir, genome_version = 'hg38') {
+  setwd(file.path(data_dir, sample_id))
+  
+  inputdata_10x <- Read10X_h5("filtered_feature_bc_matrix.h5")
+  metadata <- read.csv('per_barcode_metrics.csv', header = TRUE, row.names = 1, stringsAsFactors = FALSE)
+  
+  seurat_obj <- CreateSeuratObject(counts = inputdata_10x$`Gene Expression`, 
+                                   assay = 'RNA', 
+                                   project = sample_id, 
+                                   meta.data = metadata)
+  
+  seurat_obj[["percent.mt"]] <- PercentageFeatureSet(seurat_obj, pattern = "^MT-")
+  atac_counts <- filter_standard_chromosomes(inputdata_10x$Peaks)
+  seurat_obj[['ATAC']] <- create_atac_assay(atac_counts, genome_version)
+  seurat_obj <- calculate_atac_qc_metrics(seurat_obj, genome_version)
+  
+  return(seurat_obj)
+}
 
-###################### MULTI-MODAL SEURAT OBJECT & MERGE   ###################### 
+### Function: filter_standard_chromosomes
+# Description: Filters ATAC-seq peaks to include only those from standard chromosomes.
+filter_standard_chromosomes <- function(atac_counts) {
+  grange_counts <- StringToGRanges(rownames(atac_counts), sep = c(":", "-"))
+  grange_use <- seqnames(grange_counts) %in% standardChromosomes(grange_counts)
+  
+  return(atac_counts[as.vector(grange_use), ])
+}
 
+### Function: create_atac_assay
+# Description: Creates an ATAC-seq ChromatinAssay for integration into the Seurat object.
+create_atac_assay <- function(atac_counts, genome_version) {
+  annotations <- prepare_annotations(genome_version)
+  frag_file <- "atac_fragments.tsv.gz"
+  
+  chrom_assay <- CreateChromatinAssay(
+    counts = atac_counts,
+    sep = c(":", "-"),
+    genome = genome_version,
+    fragments = frag_file,
+    min.cells = 10,
+    annotation = annotations
+  )
+  
+  return(chrom_assay)
+}
 
-##-----------  Seurat object on a single sample
+### Function: prepare_annotations
+# Description: Prepares gene annotations for the specified genome version.
+prepare_annotations <- function(genome_version) {
+  annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
+  seqlevelsStyle(annotations) <- 'UCSC'
+  genome(annotations) <- genome_version
+  
+  return(annotations)
+}
 
-# Set the working directory to the folder including its raw data
-sampleID = "example_1"
-setwd(paste("../data", sampleID, sep = "/"))
-getwd()
+### Function: calculate_atac_qc_metrics
+# Description: Calculates quality control metrics for ATAC-seq data.
+calculate_atac_qc_metrics <- function(seurat_obj, genome_version) {
+  DefaultAssay(seurat_obj) <- 'ATAC'
+  
+  seurat_obj <- NucleosomeSignal(seurat_obj)
+  seurat_obj <- TSSEnrichment(seurat_obj, fast = FALSE)
+  seurat_obj$pct_reads_in_peaks <- seurat_obj$atac_peak_region_fragments / seurat_obj$atac_fragments * 100
+  seurat_obj$blacklist_fraction <- FractionCountsInRegion(seurat_obj, assay = 'ATAC', regions = blacklist_hg38_unified)
+  
+  peaks <- call_and_filter_peaks(seurat_obj, genome_version)
+  macs_count <- FeatureMatrix(fragments = Fragments(seurat_obj),
+                              features = peaks,
+                              cells = colnames(seurat_obj))
+  
+  seurat_obj[['ATAC']] <- CreateChromatinAssay(
+    counts = macs_count,
+    sep = c(":", "-"),
+    genome = genome_version,
+    fragments = "atac_fragments.tsv.gz",
+    min.cells = 10,
+    annotation = prepare_annotations(genome_version)
+  )
+  
+  return(seurat_obj)
+}
 
-# Read the 10x hdf5 file 
-inputdata.10x <- Read10X_h5("filtered_feature_bc_matrix.h5")
-metadata <- read.csv('per_barcode_metrics.csv', header = TRUE, row.names = 1, stringsAsFactors = FALSE)
+### Function: call_and_filter_peaks
+# Description: Calls ATAC-seq peaks using MACS2 and filters out blacklist regions.
+call_and_filter_peaks <- function(seurat_obj, genome_version) {
+  peaks <- CallPeaks(seurat_obj, assay = 'ATAC', macs2.path = '/home/xxx/anaconda3/bin/macs2')
+  peaks <- keepStandardChromosomes(peaks, pruning.mode = 'coarse')
+  peaks <- subsetByOverlaps(x = peaks, ranges = blacklist_hg38_unified, invert = TRUE)
+  
+  return(peaks)
+}
 
-# Generate Seurat object - RNA-seq data
-pbmc <- CreateSeuratObject(counts = inputdata.10x$`Gene Expression`, 
-                           assay = 'RNA',
-                           project = sampleID,
-                           meta.data = metadata)
-# Calculate perc.mt
-pbmc[["percent.mt"]] <- PercentageFeatureSet(pbmc, pattern = "^MT-")
+#---------------------------------------------------------------------
+# MAIN SCRIPT
+#---------------------------------------------------------------------
 
-# Add in the ATAC-seq data (only use peaks in standard chromosomes)
-atac_counts <- inputdata.10x$Peaks
-grange.counts <- StringToGRanges(rownames(atac_counts), sep = c(":", "-"))
-grange.use <- seqnames(grange.counts) %in% standardChromosomes(grange.counts)
-atac_counts <- atac_counts[as.vector(grange.use), ]
+# Define the root directory where the data for all samples is stored
+data_dir <- "../data"
 
-# Prepare gene annotations for hg38
-annotations <- GetGRangesFromEnsDb(ensdb = EnsDb.Hsapiens.v86)
-seqlevelsStyle(annotations) <- 'UCSC'
-genome(annotations) <- "hg38"
+# Create and preprocess Seurat objects for each sample
+obj_example_1 <- create_seurat_object(sample_id = "example_1", data_dir = data_dir)
+save(obj_example_1, file = file.path(data_dir, "obj_example_1_processed.rda"))
 
-frag.file <- "atac_fragments.tsv.gz"
-pbmc[['ATAC']] <- CreateChromatinAssay(
-  counts = atac_counts,
-  sep = c(":", "-"),
-  genome = 'hg38',
-  fragments = frag.file,
-  min.cells = 10,
-  annotation = annotations
-)
+obj_example_2 <- create_seurat_object(sample_id = "example_2", data_dir = data_dir)
+obj_example_3 <- create_seurat_object(sample_id = "example_3", data_dir = data_dir)
+obj_example_4 <- create_seurat_object(sample_id = "example_4", data_dir = data_dir)
 
-# Calculate nucleosome signal and TSS enrichment
-DefaultAssay(pbmc) <- 'ATAC'
-pbmc <- NucleosomeSignal(pbmc)
-pbmc <- TSSEnrichment(pbmc, fast = FALSE)
-pbmc$pct_reads_in_peaks <- pbmc$atac_peak_region_fragments / pbmc$atac_fragments * 100
-pbmc$blacklist_fraction <- FractionCountsInRegion(pbmc, assay = 'ATAC', regions = blacklist_hg38_unified)
-
-
-# Call peaks separately using MACS2
-peaks <- CallPeaks(pbmc, 
-                   assay = 'ATAC',
-                   macs2.path = '/home/terez/anaconda3/bin/macs2')
-peaks <- keepStandardChromosomes(peaks, pruning.mode = 'coarse')
-peaks <- subsetByOverlaps(x = peaks,
-                          ranges = blacklist_hg38_unified, 
-                          invert = TRUE)
-
-# Quantify counts for each peak
-macs_count <- FeatureMatrix(fragments = Fragments(pbmc),
-                            features = peaks,
-                            cells = colnames(pbmc))
-
-pbmc[['ATAC']] <- CreateChromatinAssay(
-  counts = macs_count,
-  sep = c(":", "-"),
-  genome = 'hg38',
-  fragments = frag.file,
-  min.cells = 10,
-  annotation = annotations
-)
-
-# Save the sample-specific Seurat object 
-obj_example_1 = pbmc
-save(obj_example_1, file = paste('obj', sampleID, 'processed.rda', sep = '_'))
-
-
-#------- Merge samples
-
+# Merge the Seurat objects from all samples into a single Seurat object
 obj_all <- merge(obj_example_1, y = c(obj_example_2, obj_example_3, obj_example_4), 
                  project = "postnatal_brain")
 
-save(obj_all, file = './data_preprocessed/ALL_snMultiome.rda')
-saveRDS(obj_all, './data_processed/ALL_snMultiome.rds')
+# Save the merged Seurat object for downstream analysis
+save(obj_all, file = file.path(data_dir, "data_preprocessed/ALL_snMultiome.rda"))
+saveRDS(obj_all, file.path(data_dir, "data_processed/ALL_snMultiome.rds"))
+
+# -----------------------------------------------------------------------------
+# END OF SCRIPT
+# -----------------------------------------------------------------------------
 
 
 
+# -----------------------------------------------------------------------------
+# Summary of the Code
+# -----------------------------------------------------------------------------
+# 1. **Load Necessary Libraries**:
+#    - Load R libraries required for single-cell multi-modal analysis, including Seurat for single-cell analysis,
+#      Signac for ATAC-seq data, ggplot2 for visualization, harmony for batch correction, EnsDb.Hsapiens.v86 for
+#      genome annotations, dplyr and tidyr for data manipulation.
 
+# 2. **Define Helper Functions**:
+#    - **create_seurat_object**: Creates a Seurat object from 10x Genomics data for both RNA and ATAC modalities,
+#      including reading data, creating assays, and calculating quality control metrics.
+#    - **filter_standard_chromosomes**: Filters ATAC-seq peaks to include only those from standard chromosomes.
+#    - **create_atac_assay**: Creates an ATAC-seq ChromatinAssay for integration into the Seurat object.
+#    - **prepare_annotations**: Prepares gene annotations for the specified genome version.
+#    - **calculate_atac_qc_metrics**: Calculates quality control metrics for ATAC-seq data, including nucleosome signal,
+#      TSS enrichment, and fraction of reads in peaks.
+#    - **call_and_filter_peaks**: Calls ATAC-seq peaks using MACS2 and filters out blacklist regions.
 
+# 3. **Main Script**:
+#    - Define the root directory where the data for all samples is stored.
+#    - Create and preprocess Seurat objects for each sample using the `create_seurat_object` function.
+#    - Save each preprocessed Seurat object to file for later use.
+#    - Merge all Seurat objects from different samples into a single Seurat object to combine data from multiple samples.
+#    - Save the merged Seurat object for downstream analysis in both `.rda` and `.rds` formats.
 
-###################### FILTERING & CLUSTERING 	###################### 
-
-
-options(future.globals.maxSize = 50000 * 1024^2)
-
-OBJ_ALL <- readRDS('./data_processed/ALL_snMultiome.rds')
-
-
-##---------------------------------- Filter cells
-# RNA-seq filtering: nCount_RNA, percent.mt
-# ATAC-seq filtering: nCount_ATAC, nucleosome_signal, TSS.enrichment
-FILT_ALL <- subset(x = OBJ_ALL,
-		 subset = nCount_RNA > 2e2 & 
-                 nCount_RNA < 5e4 &
-                 nCount_ATAC > 2e2 &
-                 nCount_ATAC < 1e5 &
-                 percent.mt < 5 &
-                 nucleosome_signal < 3 &
-                 TSS.enrichment > 1)
-
-
-
-##--------------------------------- Precessing and Clustering 
-N.PC = 30; N.LSI = 10
-ClusterData <- function(object, n.pc=N.PC, n.lsi = N.LSI){
-  
-  
-  ##-----Filter peaks/genes which are detected in < 10 cells
-  
-  tmp <- Matrix::rowSums(object[['RNA']]@counts > 0)
-  object[['RNA']] <- subset(object[['RNA']], features = names(which(tmp >= 10)))
-  tmp <- Matrix::rowSums(object[['ATAC']]@counts > 0)
-  object[['ATAC']] <- subset(object[['ATAC']], features = names(which(tmp >= 10)))
-  
-  
-  ##-----Normalization, dimensional reduction, and clustering on RNA-seq and ATAC-seq separately
-  
-  # RNA-seq
-  DefaultAssay(object) <- 'RNA'
-  object <- SCTransform(object)
-  object <- RunPCA(object)
-  object <- RunUMAP(object, reduction = 'pca', dims = 1:n.pc, assay = 'SCT',
-                    reduction.name = 'umap.rna', reduction.key = 'rnaUMAP_')
-  object <- FindNeighbors(object, reduction = 'pca', dims = 1:n.pc, assay = 'SCT')
-  object <- FindClusters(object, graph.name = 'SCT_snn', algorithm = 3, resolution = 0.2)
-  
-  # ATAC-seq
-  DefaultAssay(object) <- 'ATAC'
-  object <- RunTFIDF(object, method = 3)
-  object <- FindTopFeatures(object, min.cutoff = 'q75')
-  object <- RunSVD(object)
-  object <- RunUMAP(object, reduction = 'lsi', dims = 2:n.lsi, assay = 'ATAC',
-                    reduction.name = "umap.atac", reduction.key = "atacUMAP_")
-  object <- FindNeighbors(object, reduction = 'lsi', dims = 2:n.lsi, assay = 'ATAC')
-  object <- FindClusters(object, graph.name = 'ATAC_snn', algorithm = 3, resolution = 0.2)
-  
-  
-  # Weighted nearest neighbor (WNN) analysis using both modalities
-  object <- FindMultiModalNeighbors(object,
-                                    reduction.list = list("pca", "lsi"),
-                                    dims.list = list(1:n.pc, 2:n.lsi),
-                                    modality.weight.name = 'RNA.weight')
-  object <- RunUMAP(object, nn.name = "weighted.nn", 
-                    reduction.name = "wnn.umap", reduction.key = "wnnUMAP_")
-  object <- FindClusters(object, graph.name = "wsnn", algorithm = 3, verbose = FALSE, resolution = 0.2)
-  object <- FindMultiModalNeighbors(object,
-                                    reduction.list = list("harmony.pca", "harmony.lsi"),
-                                    dims.list = list(1:n.pc, 2:n.lsi),
-                                    modality.weight.name = 'RNA.weight.harmony',
-                                    knn.graph.name = 'wknn.harmony',
-                                    snn.graph.name = 'wsnn.harmony',
-                                    weighted.nn.name = 'weighted.nn.harmony')
-  
-
-  DefaultAssay(object) <- 'SCT'
-  
-  return(object)
-  
-}
-
-OBJ_FILT = ClusterData(OBJ_FILT, N.PC, N.LSI)
-
-
+# -----------------------------------------------------------------------------
