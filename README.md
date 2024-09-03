@@ -2,12 +2,12 @@
 
 
 
-## SnMulti-Modal Analysis - Preprocessing
+## SnMultiome Analysis - Preprocessing
 - **Date:** August 2024
 - **Script Name:** `preprocess_merge.R`
 - **Description:** Pre-processes single-cell RNA-seq and ATAC-seq data from multiple samples using Seurat and Signac, merges data into a single Seurat object, and saves the output.
 
-## SnMulti-Modal Analysis - Filtering and Clustering
+## SnMultiome Analysis - Filtering and Clustering
 - **Date:** August 2024
 - **Script Name:** `filter_cluster.R`
 - **Description:** Loads a pre-processed Seurat object with multi-modal data (RNA and ATAC-seq), performs filtering, normalization, dimensional reduction, and clustering, then saves the processed object.
