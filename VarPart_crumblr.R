@@ -3,6 +3,8 @@
 # Date: August 2024
 # Script name: VarPart_crumblr.R
 # Description: VariancePartion analysis and crumblr
+#
+# outputs: Potential plots for Fig. 1e, Fig.5 b
 # ------------------------------------------------------------------------------
 
 # -------------------------------
