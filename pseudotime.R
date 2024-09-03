@@ -5,6 +5,8 @@
 # Description: This script processes a Seurat object, converts it to a Monocle3
 #             cell_data_set, performs trajectory inference, and identifies temporal
 #             genes using Moran's I test.
+#
+# outputs: Potential plots for Fig. 5a, c-d
 # -----------------------------------------------------------------------------
 
 
