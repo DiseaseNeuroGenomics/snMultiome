@@ -1,0 +1,40 @@
+name: snMultiome-analysis
+channels:
+  - bioc
+  - conda-forge
+  - defaults
+dependencies:
+  - r-base=4.3.1
+  - r-seurat     # For single-cell RNA-seq data analysis
+  - r-signac     # For single-cell ATAC-seq data analysis
+  - r-ggplot2    # For data visualization
+  - r-cowplot    # For combining ggplot objects
+  - r-reshape2   # For data reshaping
+  - r-dreamlet   # For multi-omics analysis with mixed models
+  - r-crumblr    # For correlation modeling
+  - r-zenith     # For data integration
+  - r-singlecellexperiment  # For handling single-cell data
+  - r-zellkonverter     # For conversion between data formats
+  - r-tidyr      # For data tidying
+  - r-dplyr      # For data manipulation
+  - r-rcolorbrewer  # For color palettes
+  - r-ggtree     # For tree visualization
+  - r-aplot      # For advanced plotting
+  - r-muscat     # For multi-level single-cell analysis
+  - r-metafor    # For meta-analysis
+  - r-broom      # For tidy statistical analysis
+  - r-tidyverse  # Collection of data science packages
+  - r-topgo     # For gene ontology enrichment
+  - r-enrichr    # For Enrichr API
+  - r-plyr       # For data manipulation and aggregation
+  - r-data.table # For fast data manipulation
+  - r-genomicranges # For handling genomic intervals
+  - r-bedr       # For working with BED files and genomic ranges
+  - r-liftover   # For converting genomic coordinates
+  - r-edgeR      # For differential expression analysis
+  - r-scales     # For formatting and scaling plots
+  - r-ggsci      # For scientific color palettes
+  - r-harmony    # For batch correction and data integration
+  - r-ensdb.hsapiens.v86 # Ensembl-based annotation for human genome
+  - r-seuratwrappers # For interfacing Seurat with other tools
+  - r-monocle3   # For trajectory inference in single-cell data
