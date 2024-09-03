@@ -6,6 +6,8 @@
 #             multi-modal data (RNA and ATAC-seq), performs filtering, 
 #             normalization, dimensional reduction, and clustering on the data,
 #             and saves the processed object for downstream analysis.
+# 
+# outputs: Potential plots for Fig. 1b,e 
 # -----------------------------------------------------------------------------
 
 ###################### LIBRARIES ###################### 
