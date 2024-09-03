@@ -2,12 +2,12 @@
 
 
 
-## Single-cell Multi-Modal Analysis - Preprocessing
+## SnMulti-Modal Analysis - Preprocessing
 - **Date:** August 2024
 - **Script Name:** `preprocess_merge.R`
 - **Description:** Pre-processes single-cell RNA-seq and ATAC-seq data from multiple samples using Seurat and Signac, merges data into a single Seurat object, and saves the output.
 
-## Single-cell Multi-Modal Analysis - Filtering and Clustering
+## SnMulti-Modal Analysis - Filtering and Clustering
 - **Date:** August 2024
 - **Script Name:** `filter_cluster.R`
 - **Description:** Loads a pre-processed Seurat object with multi-modal data (RNA and ATAC-seq), performs filtering, normalization, dimensional reduction, and clustering, then saves the processed object.
@@ -38,7 +38,7 @@
 - **Description:** Processes a Seurat object, converts it to a Monocle3 `cell_data_set`, performs trajectory inference, and identifies temporal genes using Moran's I test.
 - **Outputs:** Potential plots for Fig. 5a, c-d.
 
-## Downstream Analysis from Oligodendrogenesis Pseudotime
+## Hotspot assignment and SCENIC+ correlation with pseudotime
 - **Date:** August 2024
 - **Script Name:** `OPCOligo_Hotspot_SCENIC.R`
 - **Description:** Performs module scoring and downstream analysis for Hotspot results and pseudotime, including correlation analysis between pseudotime and SCENIC results.
