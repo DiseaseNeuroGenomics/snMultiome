@@ -1,5 +1,5 @@
 # Project Overview - snMultiome
-This repository contains scripts for the snMultiome postnatal project, focused on the analysis and integration of multi-modal single-cell data, specifically RNA-seq and ATAC-seq. Below is an overview of the scripts used in the project. Further information, including relevant input data files, can be found in synapse under SynID **_syn62738189_**
+This repository contains scripts for the snMultiome postnatal project, focused on the analysis and integration of multi-modal single-cell data, specifically RNA-seq and ATAC-seq. Below is an overview of the scripts used in the project. Further information, including relevant input data files, can be found in synapse under SynID: **syn62738189**.
 
 
 ## SnMultiome Analysis - Preprocessing
