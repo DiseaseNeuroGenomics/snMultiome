@@ -26,6 +26,13 @@ This repository contains scripts for the snMultiome postnatal project, focused o
 - **Description:** Analyzes enrichment (MAGMA / LDsc) and TOBIAS results.
 - **Outputs:** Plots for Fig. 2c, 2e, 3a, 6c, and S6.
 
+
+## HiC - Preprocessing
+- **Date:** August 2024
+- **Script Name:** `HiC_abc.sh`
+- **Description:**  Pre-processes Hi-C for input in ABC analysis. 
+
+
 ## ABC-Max Analysis
 - **Date:** August 2024
 - **Script Name:** `abcmax.R`
